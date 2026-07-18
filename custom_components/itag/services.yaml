@@ -1,0 +1,22 @@
+find:
+  name: Find tag
+  description: >-
+    Beep the tag (Immediate Alert 0x01), connecting first if needed.
+  fields:
+    device_id:
+      name: Tag
+      description: The iTag device. Optional when only one tag is configured.
+      selector:
+        device:
+          integration: itag
+
+stop:
+  name: Stop ringing
+  description: Silence a ringing tag (Immediate Alert 0x00).
+  fields:
+    device_id:
+      name: Tag
+      description: The iTag device. Optional when only one tag is configured.
+      selector:
+        device:
+          integration: itag

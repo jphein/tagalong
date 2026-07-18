@@ -1,0 +1,431 @@
+# itag-node — dedicated ESP32-C3 node that holds GATT links to iTag keyfinders.
+#
+# This is the DISTRIBUTED alternative to the repo's custom integration: one of
+# these (or the same blocks merged into an existing bluetooth_proxy node) per
+# room. Every node hears a tag advertise and races to connect; the node holding
+# the link IS the tag's room. Two tricks make the race come out right:
+#
+#   * CONTESTED CLAIMING — each node delays its connect attempt proportionally
+#     to how weakly it hears the tag (delay = (-55 - rssi) * 80 ms, capped 3 s),
+#     so the nearest node wins without any coordinator.
+#   * PROXIMITY RELEASE — 3 consecutive link-RSSI samples below -85 dBm means
+#     the tag left the room: disconnect, let it advertise, a closer node claims.
+#
+# Per-tag entities exposed to HA: "iTag X Connected", "iTag X Link RSSI",
+# Find/Stop/Release buttons, and an esphome.itag_button event on every press
+# (consumed by ha-packages/itag_lights.yaml).
+#
+# BUDGET: an ESP32 holds ~3 GATT connections (max_connections below). If the
+# node is also a bluetooth_proxy with active connections, tags share that budget.
+#
+# Replace the AA:BB:CC:DD:EE:0x placeholders with your tags' MACs (they appear
+# as "iTAG" in an ESPHome BLE scan). NOTE: iTag MACs are random-static and may
+# ROTATE AFTER A BATTERY SWAP — re-check after changing batteries.
+
+esphome:
+  name: itag-node
+  friendly_name: itag-node
+  platformio_options:
+    board_build.mcu: esp32c3
+    board_build.variant: esp32c3
+    # prevents bootloops when flashing a modern bin via serial
+    board_build.flash_mode: dio
+
+esp32:
+  variant: ESP32C3
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_BT_BLE_50_FEATURES_SUPPORTED: y
+      CONFIG_BT_BLE_42_FEATURES_SUPPORTED: y
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "10"
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "iTag-Node"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+esp32_ble:
+  max_connections: 3
+
+esp32_ble_tracker:
+  scan_parameters:
+    continuous: True
+    interval: 320ms
+    window: 240ms
+  on_ble_advertise:
+    - mac_address:
+        - AA:BB:CC:DD:EE:01
+        - AA:BB:CC:DD:EE:02
+        - AA:BB:CC:DD:EE:03
+      then:
+        - lambda: |-
+            // contested claiming: delay proportional to weakness — the node
+            // that hears the tag strongest claims it first, everywhere
+            int d = (int)((-55 - x.get_rssi()) * 80);
+            if (d < 0) d = 0;
+            if (d > 3000) d = 3000;
+            uint64_t addr = x.address_uint64();
+            if (addr == 0xAABBCCDDEE01ULL)      { id(claim_delay_a) = d; id(last_adv_a) = millis(); id(claim_itag_a).execute(); }
+            else if (addr == 0xAABBCCDDEE02ULL) { id(claim_delay_b) = d; id(last_adv_b) = millis(); id(claim_itag_b).execute(); }
+            else if (addr == 0xAABBCCDDEE03ULL) { id(claim_delay_c) = d; id(last_adv_c) = millis(); id(claim_itag_c).execute(); }
+
+# Built-in blue LED (GPIO8, active-low on most C3 devkits) = Bluetooth state:
+# lit while this node holds a GATT connection to at least one iTag
+output:
+  - platform: gpio
+    pin:
+      number: GPIO8
+      inverted: true
+    id: bt_led_out
+
+globals:
+  - id: claim_delay_a
+    type: int
+    initial_value: '0'
+  - id: claim_delay_b
+    type: int
+    initial_value: '0'
+  - id: claim_delay_c
+    type: int
+    initial_value: '0'
+  - id: last_adv_a
+    type: uint32_t
+    initial_value: '0'
+  - id: last_adv_b
+    type: uint32_t
+    initial_value: '0'
+  - id: last_adv_c
+    type: uint32_t
+    initial_value: '0'
+
+script:
+  - id: claim_itag_a
+    mode: single
+    then:
+      - delay: !lambda 'return id(claim_delay_a);'
+      - lambda: |-
+          // only claim if the tag is still advertising (not grabbed by a closer node)
+          if (millis() - id(last_adv_a) < 2500) {
+            ESP_LOGI("claim", "claiming itag_a after %dms head-start delay", id(claim_delay_a));
+            id(itag_a)->connect();
+          }
+  - id: claim_itag_b
+    mode: single
+    then:
+      - delay: !lambda 'return id(claim_delay_b);'
+      - lambda: |-
+          if (millis() - id(last_adv_b) < 2500) {
+            ESP_LOGI("claim", "claiming itag_b after %dms head-start delay", id(claim_delay_b));
+            id(itag_b)->connect();
+          }
+  - id: claim_itag_c
+    mode: single
+    then:
+      - delay: !lambda 'return id(claim_delay_c);'
+      - lambda: |-
+          if (millis() - id(last_adv_c) < 2500) {
+            ESP_LOGI("claim", "claiming itag_c after %dms head-start delay", id(claim_delay_c));
+            id(itag_c)->connect();
+          }
+  - id: update_bt_led
+    then:
+      - lambda: |-
+          bool any_tag = id(itag_a_connected).state || id(itag_b_connected).state || id(itag_c_connected).state;
+          if (any_tag) id(bt_led).turn_on().perform();
+          else id(bt_led).turn_off().perform();
+
+light:
+  - platform: binary
+    name: "BT LED"
+    id: bt_led
+    output: bt_led_out
+    entity_category: diagnostic
+
+ble_client:
+  - mac_address: AA:BB:CC:DD:EE:01
+    id: itag_a
+    auto_connect: false
+    on_connect:
+      then:
+        - lambda: 'id(itag_a_connected).publish_state(true);'
+        - script.execute: update_bt_led
+    on_disconnect:
+      then:
+        - lambda: 'id(itag_a_connected).publish_state(false);'
+        - script.execute: update_bt_led
+  - mac_address: AA:BB:CC:DD:EE:02
+    id: itag_b
+    auto_connect: false
+    on_connect:
+      then:
+        - lambda: 'id(itag_b_connected).publish_state(true);'
+        - script.execute: update_bt_led
+    on_disconnect:
+      then:
+        - lambda: 'id(itag_b_connected).publish_state(false);'
+        - script.execute: update_bt_led
+  - mac_address: AA:BB:CC:DD:EE:03
+    id: itag_c
+    auto_connect: false
+    on_connect:
+      then:
+        - lambda: 'id(itag_c_connected).publish_state(true);'
+        - script.execute: update_bt_led
+    on_disconnect:
+      then:
+        - lambda: 'id(itag_c_connected).publish_state(false);'
+        - script.execute: update_bt_led
+
+sensor:
+  - platform: ble_client
+    ble_client_id: itag_a
+    id: itag_a_rssi
+    name: "iTag A Link RSSI"
+    type: rssi
+    update_interval: 2s
+    filters:
+      - median:
+          window_size: 3
+          send_every: 1
+          send_first_at: 1
+    on_value:
+      then:
+        - lambda: |-
+            // proximity release: 3 consecutive samples < -85 -> tag left the room
+            static int weak_count_a = 0;
+            if (x < -85 && !std::isnan(x)) {
+              if (++weak_count_a >= 3) {
+                ESP_LOGI("itag", "itag_a rssi %.0f x3 — releasing (left room, thr -85)", x);
+                weak_count_a = 0;
+                id(itag_a)->disconnect();
+              }
+            } else {
+              weak_count_a = 0;
+            }
+  - platform: ble_client
+    ble_client_id: itag_b
+    id: itag_b_rssi
+    name: "iTag B Link RSSI"
+    type: rssi
+    update_interval: 2s
+    filters:
+      - median:
+          window_size: 3
+          send_every: 1
+          send_first_at: 1
+    on_value:
+      then:
+        - lambda: |-
+            static int weak_count_b = 0;
+            if (x < -85 && !std::isnan(x)) {
+              if (++weak_count_b >= 3) {
+                ESP_LOGI("itag", "itag_b rssi %.0f x3 — releasing (left room, thr -85)", x);
+                weak_count_b = 0;
+                id(itag_b)->disconnect();
+              }
+            } else {
+              weak_count_b = 0;
+            }
+  - platform: ble_client
+    ble_client_id: itag_c
+    id: itag_c_rssi
+    name: "iTag C Link RSSI"
+    type: rssi
+    update_interval: 2s
+    filters:
+      - median:
+          window_size: 3
+          send_every: 1
+          send_first_at: 1
+    on_value:
+      then:
+        - lambda: |-
+            static int weak_count_c = 0;
+            if (x < -85 && !std::isnan(x)) {
+              if (++weak_count_c >= 3) {
+                ESP_LOGI("itag", "itag_c rssi %.0f x3 — releasing (left room, thr -85)", x);
+                weak_count_c = 0;
+                id(itag_c)->disconnect();
+              }
+            } else {
+              weak_count_c = 0;
+            }
+  # Button line: ffe0/ffe1 notify fires on every press (only while connected —
+  # which is the whole reason the nodes hold links at all)
+  - platform: ble_client
+    ble_client_id: itag_a
+    id: itag_a_button
+    internal: true
+    type: characteristic
+    service_uuid: ffe0
+    characteristic_uuid: ffe1
+    notify: true
+    update_interval: never
+    on_notify:
+      then:
+        - homeassistant.event:
+            event: esphome.itag_button
+            data:
+              tag: itag_a
+              node: itag-node
+        - light.turn_off: bt_led
+        - delay: 120ms
+        - light.turn_on: bt_led
+        - delay: 120ms
+        - light.turn_off: bt_led
+        - delay: 120ms
+        - script.execute: update_bt_led
+  - platform: ble_client
+    ble_client_id: itag_b
+    id: itag_b_button
+    internal: true
+    type: characteristic
+    service_uuid: ffe0
+    characteristic_uuid: ffe1
+    notify: true
+    update_interval: never
+    on_notify:
+      then:
+        - homeassistant.event:
+            event: esphome.itag_button
+            data:
+              tag: itag_b
+              node: itag-node
+        - light.turn_off: bt_led
+        - delay: 120ms
+        - light.turn_on: bt_led
+        - delay: 120ms
+        - light.turn_off: bt_led
+        - delay: 120ms
+        - script.execute: update_bt_led
+  - platform: ble_client
+    ble_client_id: itag_c
+    id: itag_c_button
+    internal: true
+    type: characteristic
+    service_uuid: ffe0
+    characteristic_uuid: ffe1
+    notify: true
+    update_interval: never
+    on_notify:
+      then:
+        - homeassistant.event:
+            event: esphome.itag_button
+            data:
+              tag: itag_c
+              node: itag-node
+        - light.turn_off: bt_led
+        - delay: 120ms
+        - light.turn_on: bt_led
+        - delay: 120ms
+        - light.turn_off: bt_led
+        - delay: 120ms
+        - script.execute: update_bt_led
+
+binary_sensor:
+  - platform: template
+    name: "iTag A Connected"
+    id: itag_a_connected
+  - platform: template
+    name: "iTag B Connected"
+    id: itag_b_connected
+  - platform: template
+    name: "iTag C Connected"
+    id: itag_c_connected
+
+button:
+  - platform: safe_mode
+    name: (Safe Mode)
+  # Find = Immediate Alert (1802/2a06): 0x01 beeps, 0x00 stops. Only the node
+  # holding the tag's link can beep it — fire these on ALL nodes in parallel
+  # (see ha-packages/itag_lights.yaml) and the holder wins.
+  - platform: template
+    name: "Find iTag A"
+    icon: mdi:bell-ring
+    on_press:
+      - ble_client.ble_write:
+          id: itag_a
+          service_uuid: '1802'
+          characteristic_uuid: '2a06'
+          value: [0x01]
+  - platform: template
+    name: "Stop iTag A"
+    icon: mdi:bell-off
+    on_press:
+      - ble_client.ble_write:
+          id: itag_a
+          service_uuid: '1802'
+          characteristic_uuid: '2a06'
+          value: [0x00]
+  - platform: template
+    name: "Find iTag B"
+    icon: mdi:bell-ring
+    on_press:
+      - ble_client.ble_write:
+          id: itag_b
+          service_uuid: '1802'
+          characteristic_uuid: '2a06'
+          value: [0x01]
+  - platform: template
+    name: "Stop iTag B"
+    icon: mdi:bell-off
+    on_press:
+      - ble_client.ble_write:
+          id: itag_b
+          service_uuid: '1802'
+          characteristic_uuid: '2a06'
+          value: [0x00]
+  - platform: template
+    name: "Find iTag C"
+    icon: mdi:bell-ring
+    on_press:
+      - ble_client.ble_write:
+          id: itag_c
+          service_uuid: '1802'
+          characteristic_uuid: '2a06'
+          value: [0x01]
+  - platform: template
+    name: "Stop iTag C"
+    icon: mdi:bell-off
+    on_press:
+      - ble_client.ble_write:
+          id: itag_c
+          service_uuid: '1802'
+          characteristic_uuid: '2a06'
+          value: [0x00]
+  # Release = force-drop the link so a closer node can claim (used by the
+  # weak-link correction path in the lights automation)
+  - platform: template
+    name: "Release iTag A"
+    id: release_itag_a
+    entity_category: diagnostic
+    on_press:
+      - lambda: 'id(itag_a)->disconnect();'
+  - platform: template
+    name: "Release iTag B"
+    id: release_itag_b
+    entity_category: diagnostic
+    on_press:
+      - lambda: 'id(itag_b)->disconnect();'
+  - platform: template
+    name: "Release iTag C"
+    id: release_itag_c
+    entity_category: diagnostic
+    on_press:
+      - lambda: 'id(itag_c)->disconnect();'

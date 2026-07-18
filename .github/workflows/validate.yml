@@ -1,0 +1,29 @@
+name: Validate
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+# validation-only workflow: never let the token write (mitigates a compromised
+# upstream action; hassfest/hacs refs are upstream-documented moving targets that
+# must track HA releases, so we restrict the token instead of SHA-pinning)
+permissions:
+  contents: read
+
+jobs:
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands

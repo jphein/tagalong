@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# ESPHome build artifacts
+.esphome/
+secrets.yaml
+
+# scratch / captures
+*.log
+scratch/

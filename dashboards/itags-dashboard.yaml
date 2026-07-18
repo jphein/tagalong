@@ -1,0 +1,95 @@
+# "Find My" style dashboard for the iTag fleet (sections layout).
+# Works with EITHER setup in this repo:
+#   * ESPHome fleet: sensor.tag_X_room + script.find_itag_X come from
+#     ha-packages/itag_lights.yaml
+#   * custom integration: swap in sensor.<tag>_room, button.<tag>_find,
+#     button.<tag>_stop_ringing, binary_sensor.<tag>_connected
+# Import via Settings -> Dashboards -> Add dashboard -> "Start with YAML".
+views:
+  - type: sections
+    max_columns: 3
+    title: Find My Tags
+    path: home
+    icon: mdi:tag-multiple
+    sections:
+      - type: grid
+        column_span: 1
+        cards:
+          - type: heading
+            heading: Tag A
+            heading_style: title
+            icon: mdi:tag
+          - type: tile
+            entity: sensor.tag_a_room
+            name: Room
+            icon: mdi:map-marker-radius
+            color: primary
+          - type: tile
+            entity: script.find_itag_a
+            name: Find (beep)
+            icon: mdi:bell-ring
+            color: amber
+            tap_action:
+              action: perform-action
+              perform_action: script.find_itag_a
+          - type: tile
+            entity: script.stop_itag_a
+            name: Silence
+            icon: mdi:bell-off
+            tap_action:
+              action: perform-action
+              perform_action: script.stop_itag_a
+      - type: grid
+        column_span: 1
+        cards:
+          - type: heading
+            heading: Tag B
+            heading_style: title
+            icon: mdi:tag
+          - type: tile
+            entity: sensor.tag_b_room
+            name: Room
+            icon: mdi:map-marker-radius
+            color: primary
+          - type: tile
+            entity: script.find_itag_b
+            name: Find (beep)
+            icon: mdi:bell-ring
+            color: amber
+            tap_action:
+              action: perform-action
+              perform_action: script.find_itag_b
+          - type: tile
+            entity: script.stop_itag_b
+            name: Silence
+            icon: mdi:bell-off
+            tap_action:
+              action: perform-action
+              perform_action: script.stop_itag_b
+      - type: grid
+        column_span: 1
+        cards:
+          - type: heading
+            heading: Tag C
+            heading_style: title
+            icon: mdi:tag
+          - type: tile
+            entity: sensor.tag_c_room
+            name: Room
+            icon: mdi:map-marker-radius
+            color: primary
+          - type: tile
+            entity: script.find_itag_c
+            name: Find (beep)
+            icon: mdi:bell-ring
+            color: amber
+            tap_action:
+              action: perform-action
+              perform_action: script.find_itag_c
+          - type: tile
+            entity: script.stop_itag_c
+            name: Silence
+            icon: mdi:bell-off
+            tap_action:
+              action: perform-action
+              perform_action: script.stop_itag_c

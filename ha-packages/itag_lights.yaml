@@ -1,0 +1,218 @@
+# iTag room-aware button → lights  (companion to esphome/itag-node.yaml)
+#
+# The tag only reports button presses over a GATT connection. Each ESPHome node
+# that lists the tag in ble_client fires esphome.itag_button with its own node
+# name; the node holding the connection is by definition the room the tag is
+# in, so we act on that room's lights. Which entities count as "the room's
+# lights" is curated with a "Button Lights" label (label_id: button_lights) —
+# label an entity to opt it in, any domain (light/switch) works.
+# Multi-room = add the same ble_client to more nodes + label the room's lights;
+# nothing here changes.
+#
+# EDIT MARKERS: this package assumes three tags (a/b/c) held by three example
+# nodes named kitchen-itag-node / bedroom-itag-node / office-itag-node, each
+# assigned to an Area in HA. Search for "EDIT" and adjust to your fleet.
+
+automation:
+  - id: itag_button_room_lights
+    alias: "iTag button: toggle lights in tag's room"
+    mode: queued
+    max_exceeded: silent
+    triggers:
+      - trigger: event
+        event_type: esphome.itag_button
+    actions:
+      - variables:
+          tag: "{{ trigger.event.data.tag }}"
+          node: "{{ trigger.event.data.node }}"
+          node_dev: "{{ device_id(node) }}"
+          room: "{{ area_id(node_dev) }}"
+          rssi_ent: >-
+            {{ device_entities(node_dev) | select('search', tag ~ '_link_rssi') | list | first | default('') }}
+          link_rssi: "{{ states(rssi_ent) | float(-100) if rssi_ent else -100 }}"
+          tag_letter: "{{ tag[-1] }}"
+      - condition: template
+        value_template: "{{ room not in [none, ''] }}"
+      - condition: template
+        # debounce: only swallow duplicate notifies from a single physical press
+        value_template: >-
+          {{ this.attributes.last_triggered is none or
+             (now() - this.attributes.last_triggered).total_seconds() > 0.5 }}
+      - choose:
+          # weak link = press probably came from ANOTHER room: release the tag,
+          # let the co-located node claim it, then toggle where it landed
+          - conditions: "{{ link_rssi < -83 }}"
+            sequence:
+              - action: button.press
+                continue_on_error: true
+                target:
+                  entity_id: >-
+                    {{ device_entities(node_dev) | select('search', 'release_' ~ tag) | list | first }}
+              - delay:
+                  seconds: 2
+              - wait_template: "{{ states('sensor.tag_' ~ tag_letter ~ '_room') not in ['Unknown', 'unknown', 'unavailable'] }}"
+                timeout: "00:00:12"
+              - variables:
+                  # EDIT: map your Tag Room sensor display names -> HA area ids
+                  corrected_room: >-
+                    {% set m = {'Kitchen': 'kitchen', 'Bedroom': 'bedroom',
+                                'Office': 'office'} %}
+                    {{ m.get(states('sensor.tag_' ~ tag_letter ~ '_room'), room) }}
+              - action: script.toggle_room_lights
+                data:
+                  room: "{{ corrected_room }}"
+        default:
+          - action: script.toggle_room_lights
+            data:
+              room: "{{ room }}"
+
+script:
+  toggle_room_lights:
+    alias: "Toggle a room's button lights"
+    mode: queued
+    fields:
+      room:
+        description: "area id"
+    sequence:
+      - variables:
+          room_lights: >-
+            {{ area_entities(room) | select('in', label_entities('button_lights')) | list }}
+          any_on: "{{ room_lights | select('is_state', 'on') | list | count > 0 }}"
+      - choose:
+          - conditions: "{{ any_on }}"
+            sequence:
+              - action: homeassistant.turn_off
+                continue_on_error: true
+                target:
+                  entity_id: "{{ room_lights }}"
+        default:
+          - action: homeassistant.turn_on
+            continue_on_error: true
+            target:
+              entity_id: "{{ room_lights }}"
+
+  # Find/Stop: only the node holding the tag's link can beep it, so press the
+  # button on EVERY node in parallel — the holder wins, the rest no-op.
+  # EDIT: one button.press per node, per tag.
+  find_itag_a:
+    alias: "Find Tag A (beep)"
+    icon: mdi:bell-ring
+    sequence:
+      - parallel:
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.kitchen_itag_node_find_itag_a
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.bedroom_itag_node_find_itag_a
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.office_itag_node_find_itag_a
+  stop_itag_a:
+    alias: "Silence Tag A"
+    icon: mdi:bell-off
+    sequence:
+      - parallel:
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.kitchen_itag_node_stop_itag_a
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.bedroom_itag_node_stop_itag_a
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.office_itag_node_stop_itag_a
+  find_itag_b:
+    alias: "Find Tag B (beep)"
+    icon: mdi:bell-ring
+    sequence:
+      - parallel:
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.kitchen_itag_node_find_itag_b
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.bedroom_itag_node_find_itag_b
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.office_itag_node_find_itag_b
+  stop_itag_b:
+    alias: "Silence Tag B"
+    icon: mdi:bell-off
+    sequence:
+      - parallel:
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.kitchen_itag_node_stop_itag_b
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.bedroom_itag_node_stop_itag_b
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.office_itag_node_stop_itag_b
+  find_itag_c:
+    alias: "Find Tag C (beep)"
+    icon: mdi:bell-ring
+    sequence:
+      - parallel:
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.kitchen_itag_node_find_itag_c
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.bedroom_itag_node_find_itag_c
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.office_itag_node_find_itag_c
+  stop_itag_c:
+    alias: "Silence Tag C"
+    icon: mdi:bell-off
+    sequence:
+      - parallel:
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.kitchen_itag_node_stop_itag_c
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.bedroom_itag_node_stop_itag_c
+          - action: button.press
+            continue_on_error: true
+            target:
+              entity_id: button.office_itag_node_stop_itag_c
+
+# One "Tag X Room" sensor per tag: whichever node holds the connection.
+# EDIT: one elif branch per node, display name = the room it sits in.
+template:
+  - sensor:
+      - name: "Tag A Room"
+        unique_id: itag_a_room
+        icon: mdi:map-marker-radius
+        state: >-
+          {% if is_state('binary_sensor.kitchen_itag_node_itag_a_connected','on') %}Kitchen{% elif is_state('binary_sensor.bedroom_itag_node_itag_a_connected','on') %}Bedroom{% elif is_state('binary_sensor.office_itag_node_itag_a_connected','on') %}Office{% else %}Unknown{% endif %}
+      - name: "Tag B Room"
+        unique_id: itag_b_room
+        icon: mdi:map-marker-radius
+        state: >-
+          {% if is_state('binary_sensor.kitchen_itag_node_itag_b_connected','on') %}Kitchen{% elif is_state('binary_sensor.bedroom_itag_node_itag_b_connected','on') %}Bedroom{% elif is_state('binary_sensor.office_itag_node_itag_b_connected','on') %}Office{% else %}Unknown{% endif %}
+      - name: "Tag C Room"
+        unique_id: itag_c_room
+        icon: mdi:map-marker-radius
+        state: >-
+          {% if is_state('binary_sensor.kitchen_itag_node_itag_c_connected','on') %}Kitchen{% elif is_state('binary_sensor.bedroom_itag_node_itag_c_connected','on') %}Bedroom{% elif is_state('binary_sensor.office_itag_node_itag_c_connected','on') %}Office{% else %}Unknown{% endif %}

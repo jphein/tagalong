@@ -1,0 +1,19 @@
+{
+  "domain": "itag",
+  "name": "iTag BLE Tracker",
+  "bluetooth": [
+    { "service_uuid": "0000ffe0-0000-1000-8000-00805f9b34fb" },
+    { "local_name": "iTAG*" },
+    { "local_name": "ITAG*" },
+    { "local_name": "iTag*" }
+  ],
+  "codeowners": ["@jphein"],
+  "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
+  "documentation": "https://github.com/jphein/itags",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/jphein/itags/issues",
+  "requirements": ["bleak-retry-connector>=3.5.0"],
+  "version": "0.1.0"
+}
