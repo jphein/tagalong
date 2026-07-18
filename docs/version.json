@@ -1,12 +1,12 @@
 {
-  "name": "itags",
+  "name": "tagalong",
   "description": "iTag BLE keyfinders as room-aware buttons for Home Assistant",
-  "version": "Grounded Frequency \u00b7 4a035e5",
-  "hash": "4a035e5",
+  "version": "Looping Emitter \u00b7 79cbc66",
+  "hash": "79cbc66",
   "branch": "main",
   "dirty": false,
-  "built": "2026-07-18T15:27:27Z",
+  "built": "2026-07-18T16:15:20Z",
   "realm": "signal",
-  "repo": "https://github.com/jphein/itags",
-  "commit_url": "https://github.com/jphein/itags/commit/4a035e5"
+  "repo": "https://github.com/jphein/tagalong",
+  "commit_url": "https://github.com/jphein/tagalong/commit/79cbc66"
 }
