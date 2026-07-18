@@ -44,7 +44,10 @@ connection.** Something has to hold a link to every tag, all the time.
 **1. The custom integration** (simplest — start here): HA holds one link per tag
 through its Bluetooth stack. Install via [HACS](https://hacs.xyz) → custom
 repository `jphein/itags` (type: integration), or copy `custom_components/itag/`
-into your config. Tags auto-discover in Settings → Devices & Services. You get a
+into your config. *(Fun fact: HACS's URL normalizer strips `tags/` from download
+URLs, which mangles a repo literally named `itags` — installs work via the
+zipball path, but HACS may not render this repo's metadata until the upstream
+bug is fixed. Manual install is unaffected.)* Tags auto-discover in Settings → Devices & Services. You get a
 button event entity, Find/Stop buttons, and room/signal/battery sensors per tag —
 details in [`custom_components/itag/README.md`](custom_components/itag/README.md).
 
