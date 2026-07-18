@@ -149,6 +149,21 @@
 
 <main class="wrap">
 
+  <section id="demo" style="border-top:none;padding-top:8px">
+    <h2><span class="em">▶️</span>The whole system, in one loop</h2>
+    <p class="lead">Three <span class="price">$2</span> tags, four rooms, zero coordinator —
+      contested claiming, room handoff, button&nbsp;→&nbsp;lights and whole-home find-my, animated
+      end to end.</p>
+    <figure style="margin:14px 0 0">
+      <img src="assets/tags-in-action.svg" loading="lazy" decoding="async"
+        alt="Animated walkthrough of the itags system across four rooms. Phase 1, contested claiming: Tag B advertises and three ESP32 nodes show their claim-delay countdowns — the nearest node (0.24 s) wins the GATT link and becomes Tag B's room. Phase 2, room handoff: Tag B moves toward the office, its link RSSI weakens past −85 dBm three times, the link releases, the tag re-advertises, and the closer office node re-claims it. Phase 3, button to lights: Tag A's button is pressed in the kitchen, an esphome.itag_button event flows to Home Assistant, and the kitchen lamp toggles on. Phase 4, find-my: a find command races from Home Assistant to every node in parallel, and Tag C beeps in the detached shed."
+        style="width:100%;border-radius:14px;box-shadow:var(--shadow);background:var(--panel);
+               border:1px solid var(--line);display:block">
+      <figcaption>One ~30-second loop through all four behaviours. Honours your light/dark theme and
+        <code>prefers-reduced-motion</code> (which freezes it to a labelled still).</figcaption>
+    </figure>
+  </section>
+
   <section>
     <div class="cols">
       <div>

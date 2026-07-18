@@ -1,0 +1,310 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 452" role="img"
+     font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <title>itags in action: contested claiming, room handoff, button-to-lights, and whole-home find-my</title>
+  <desc>An animated walkthrough of three $2 BLE keyfinder tags across four rooms. Tag B advertises
+    and the nearest ESP32 node wins the GATT link; Tag B changes rooms and a closer node re-claims
+    it after proximity release; Tag A's button press flows to Home Assistant and toggles the room's
+    lamp; a find command races to every node and Tag C beeps in the shed.</desc>
+
+  <defs>
+    <radialGradient id="lampglow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd67a" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#ffc94d" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#ffc94d" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <style>
+    :root{
+      --ink:#1b2030; --muted:#5b667e; --wall:#c2c8d6; --roomfill:#00000005;
+      --node:#5b667e; --nodefill:#eef1f7; --chip:#aeb4c6;
+      --teal:#0e9c8a; --amber:#d97a0c; --violet:#7c5cff;
+      --lamp:#e0a417; --bad:#e5484d; --ok:#12a150; --ha:#0e9c8a; --panel:#ffffff;
+    }
+    @media (prefers-color-scheme:dark){:root{
+      --ink:#e9eaf2; --muted:#9aa0b4; --wall:#2f3446; --roomfill:#ffffff08;
+      --node:#9aa0b4; --nodefill:#1b1f2b; --chip:#3a4056;
+      --teal:#22d3bb; --amber:#f5a623; --violet:#8b74ff;
+      --lamp:#f5a623; --bad:#ff6b6f; --ok:#3ad07f; --ha:#22d3bb; --panel:#14161f;
+    }}
+
+    text{fill:var(--ink)}
+    .muted{fill:var(--muted)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .wall{stroke:var(--wall);fill:none}
+    .roomfill{fill:var(--roomfill)}
+    .node-f{fill:var(--nodefill)} .node-s{stroke:var(--node)}
+    .chip{stroke:var(--chip)}
+    .tA{fill:var(--teal)} .tAs{stroke:var(--teal)}
+    .tB{fill:var(--amber)} .tBs{stroke:var(--amber)}
+    .tC{fill:var(--violet)} .tCs{stroke:var(--violet)}
+    .tagfill{fill:var(--panel)}
+    .ok{fill:var(--ok)} .bad{fill:var(--bad)}
+    .ha-s{stroke:var(--ha)} .ha-f{fill:var(--ha)}
+    .lamp{fill:var(--lamp)}
+    .link{fill:none;stroke-width:2.6;stroke-linecap:round}
+    .lA{stroke:var(--teal)} .lB{stroke:var(--amber)} .lC{stroke:var(--violet)}
+
+    /* ---- transient elements: hidden by default, revealed by keyframes ---- */
+    .ripple,.pill,.tap,.claim,.win,.weak,.fan,.beep,.findcmd{opacity:0}
+    .cap{opacity:0;text-anchor:middle}
+    .rmcap{opacity:0;text-anchor:middle}
+
+    /* ---- persistent-but-animated: normal state = the reduced-motion still ---- */
+    .tagB{}                        /* Tag B sits in the Bedroom by default */
+    .linkB-bed{opacity:1}          /* connected in bedroom in the still */
+    .linkB-off{opacity:0}
+    .dotB{opacity:1}
+    .dotO{opacity:0}
+    .badBed{opacity:1}
+    .badOff{opacity:0}
+    .lampK{opacity:1}              /* kitchen lamp lit in the still (button->lights result) */
+
+    /* =================== ANIMATIONS (master timeline = 30s) =================== */
+    .tagB   {animation:moveB 30s linear infinite, fadeB 30s linear infinite}
+    .linkB-bed{animation:lbBed 30s linear infinite}
+    .linkB-off{animation:lbOff 30s linear infinite}
+    .dotB{animation:dotB 30s linear infinite}
+    .dotO{animation:dotO 30s linear infinite}
+    .badBed{animation:badBed 30s linear infinite}
+    .badOff{animation:badOff 30s linear infinite}
+    .lampK{animation:lampK 30s linear infinite}
+    .p1{animation:cap1 30s linear infinite}
+    .p2{animation:cap2 30s linear infinite}
+    .p3{animation:cap3 30s linear infinite}
+    .p4{animation:cap4 30s linear infinite}
+    .advB{animation:advB 30s linear infinite}
+    .claim{animation:claim 30s linear infinite}
+    .win{animation:win 30s linear infinite}
+    .weak{animation:weak 30s linear infinite}
+    .tap{animation:tap 30s linear infinite}
+    .pill{animation:pill 30s linear infinite}
+    .findcmd{animation:findcmd 30s linear infinite}
+    .fan{animation:fan 30s linear infinite}
+    .beep{animation:beep 30s linear infinite}
+    .wiggleC{animation:wiggleC 30s linear infinite;transform-box:fill-box;transform-origin:center}
+    /* fast sub-loops layered on top of the phase envelopes */
+    .pulse{animation:pulse 1.9s linear infinite}
+    .race{stroke-dasharray:6 7;animation:race 0.7s linear infinite}
+    .arc{transform-box:fill-box;transform-origin:center;animation:arc 1.4s linear infinite}
+
+    @keyframes cap1{0%{opacity:0}2%{opacity:1}24%{opacity:1}26.5%{opacity:0}100%{opacity:0}}
+    @keyframes cap2{0%,27%{opacity:0}29.5%{opacity:1}50%{opacity:1}52.5%{opacity:0}100%{opacity:0}}
+    @keyframes cap3{0%,53%{opacity:0}55.5%{opacity:1}74%{opacity:1}76.5%{opacity:0}100%{opacity:0}}
+    @keyframes cap4{0%,77%{opacity:0}79.5%{opacity:1}98%{opacity:1}100%{opacity:0}}
+
+    /* Tag B: bedroom (x=0) -> office (x=+160), hidden teleport back at the wrap */
+    @keyframes moveB{
+      0%{transform:translateX(0)} 30%{transform:translateX(0)}
+      40%{transform:translateX(160px)} 97%{transform:translateX(160px)}
+      97.4%{transform:translateX(0)} 100%{transform:translateX(0)}}
+    @keyframes fadeB{0%,96%{opacity:1}97%{opacity:0}98.3%{opacity:0}99.3%{opacity:1}100%{opacity:1}}
+
+    @keyframes lbBed{0%{opacity:0}8%{opacity:0}10%{opacity:1}30%{opacity:1}
+      31%{opacity:.45}32%{opacity:.8}33.5%{opacity:0}100%{opacity:0}}
+    @keyframes lbOff{0%{opacity:0}38.5%{opacity:0}41%{opacity:1}96.5%{opacity:1}97%{opacity:0}100%{opacity:0}}
+    @keyframes dotB{0%{opacity:0}9%{opacity:0}11%{opacity:1}31%{opacity:1}33.5%{opacity:0}100%{opacity:0}}
+    @keyframes dotO{0%{opacity:0}40%{opacity:0}41.5%{opacity:1}96.5%{opacity:1}97%{opacity:0}100%{opacity:0}}
+    @keyframes badBed{0%{opacity:1}33%{opacity:1}35%{opacity:0}98.5%{opacity:0}99.4%{opacity:1}100%{opacity:1}}
+    @keyframes badOff{0%{opacity:0}40%{opacity:0}41.5%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}
+
+    @keyframes advB{0%{opacity:1}6%{opacity:1}9%{opacity:0}
+      33%{opacity:0}35%{opacity:1}40%{opacity:1}42%{opacity:0}100%{opacity:0}}
+    @keyframes pulse{0%{r:5px;opacity:.55}100%{r:26px;opacity:0}}
+
+    @keyframes claim{0%,4%{opacity:0}6%{opacity:1}22%{opacity:1}25%{opacity:0}100%{opacity:0}}
+    @keyframes win{0%,8%{opacity:0}10%{opacity:1}23%{opacity:1}25%{opacity:0}100%{opacity:0}}
+    @keyframes weak{0%,27%{opacity:0}29.5%{opacity:1}33%{opacity:1}35%{opacity:0}100%{opacity:0}}
+
+    @keyframes lampK{0%{opacity:0}65%{opacity:0}67.5%{opacity:1}72%{opacity:1}74%{opacity:0}100%{opacity:0}}
+    @keyframes tap{
+      0%,54%{opacity:0;r:2px}54.6%{opacity:.75;r:2px}58%{opacity:0;r:20px}
+      69%{opacity:0;r:2px}69.6%{opacity:.75;r:2px}73%{opacity:0;r:20px}100%{opacity:0}}
+    /* event pill: Tag A(110,300) -> Kitchen node(70,150) -> HA hub(270,92) */
+    @keyframes pill{
+      0%,55%{opacity:0;transform:translate(0,0)}
+      57%{opacity:1;transform:translate(0,0)}
+      61%{opacity:1;transform:translate(-40px,-150px)}
+      63%{opacity:1;transform:translate(-40px,-150px)}
+      66.5%{opacity:1;transform:translate(160px,-208px)}
+      68%{opacity:0;transform:translate(160px,-208px)}
+      100%{opacity:0}}
+
+    @keyframes findcmd{0%,77%{opacity:0}79%{opacity:1}82%{opacity:1}84%{opacity:0}100%{opacity:0}}
+    @keyframes fan{0%,78%{opacity:0}80%{opacity:.95}95%{opacity:.95}97%{opacity:0}100%{opacity:0}}
+    @keyframes race{to{stroke-dashoffset:-26}}
+    @keyframes beep{0%,82%{opacity:0}84%{opacity:1}95%{opacity:1}97%{opacity:0}100%{opacity:0}}
+    @keyframes arc{0%{transform:scale(.35);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+    @keyframes wiggleC{0%,82%{transform:rotate(0)}84%{transform:rotate(-9deg)}86%{transform:rotate(9deg)}
+      88%{transform:rotate(-6deg)}90%{transform:rotate(6deg)}92%{transform:rotate(0)}100%{transform:rotate(0)}}
+
+    /* =================== reduced motion: freeze to the readable still =================== */
+    @media (prefers-reduced-motion:reduce){
+      *{animation:none !important}
+      .cap{opacity:0}          /* hide the phase captions */
+      .rmcap{opacity:1}        /* show the single summary caption */
+    }
+  </style>
+
+  <!-- ===================== captions ===================== -->
+  <text class="cap p1" x="370" y="26" font-size="17" font-weight="700">① Contested claiming — the nearest node wins the link</text>
+  <text class="cap p1 mono muted" x="370" y="46" font-size="12">delay = (−55 − rssi) × 80 ms&#160;&#160;·&#160;&#160;shortest delay wins, everywhere</text>
+  <text class="cap p2" x="370" y="26" font-size="17" font-weight="700">② Room handoff — proximity release, then a closer node re-claims</text>
+  <text class="cap p2 mono muted" x="370" y="46" font-size="12">3 link samples &lt; −85 dBm → disconnect → tag re-advertises</text>
+  <text class="cap p3" x="370" y="26" font-size="17" font-weight="700">③ Button → the lights in this room</text>
+  <text class="cap p3 mono muted" x="370" y="46" font-size="12">node → area → toggle entities labelled button_lights</text>
+  <text class="cap p4" x="370" y="26" font-size="17" font-weight="700">④ Find-my — every node races the beep</text>
+  <text class="cap p4 mono muted" x="370" y="46" font-size="12">only the node holding the tag can ring it</text>
+  <!-- static summary, shown only under prefers-reduced-motion -->
+  <text class="rmcap" x="370" y="26" font-size="16" font-weight="700">itags — connection-based room presence, with no coordinator</text>
+  <text class="rmcap muted" x="370" y="46" font-size="12.5">Contested claiming · room handoff · button → lights · whole-home find-my</text>
+
+  <!-- ===================== Home Assistant hub ===================== -->
+  <g>
+    <path class="ha-s" fill="var(--panel)" stroke-width="2.4" stroke-linejoin="round"
+          d="M256 96 l14 -11 l14 11 v14 h-28 z"/>
+    <rect class="ha-f" x="266" y="102" width="8" height="8" rx="1.5"/>
+    <text class="muted" x="270" y="80" font-size="10.5" text-anchor="middle" font-weight="600">Home Assistant</text>
+  </g>
+  <!-- find command burst from the hub -->
+  <g class="findcmd">
+    <circle class="ha-f" cx="270" cy="100" r="6" opacity="0.5"/>
+  </g>
+
+  <!-- ===================== find-my fan-out (HA -> every node) ===================== -->
+  <g class="fan">
+    <line class="link lC race" x1="270" y1="104" x2="72"  y2="150"/>
+    <line class="link lC race" x1="270" y1="104" x2="232" y2="150"/>
+    <line class="link lC race" x1="270" y1="104" x2="392" y2="150"/>
+    <line class="link lC race" x1="270" y1="104" x2="588" y2="232"/>
+  </g>
+
+  <!-- ===================== house shell ===================== -->
+  <rect class="roomfill" x="30" y="118" width="480" height="244" rx="9"/>
+  <rect class="wall" x="30" y="118" width="480" height="244" rx="9" stroke-width="3"/>
+  <path class="wall" stroke-width="3" d="M190 118 V196 M190 260 V362 M350 118 V196 M350 260 V362"/>
+  <!-- detached shed + yard -->
+  <path class="wall" stroke-width="2" stroke-dasharray="2 6" d="M510 350 H560" opacity="0.8"/>
+  <rect class="roomfill" x="560" y="206" width="150" height="156" rx="9"/>
+  <rect class="wall" x="560" y="206" width="150" height="156" rx="9" stroke-width="3"/>
+
+  <!-- room labels -->
+  <text class="muted" x="110" y="352" font-size="13" text-anchor="middle">Kitchen</text>
+  <text class="muted" x="270" y="352" font-size="13" text-anchor="middle">Bedroom</text>
+  <text class="muted" x="430" y="352" font-size="13" text-anchor="middle">Office</text>
+  <text class="muted" x="635" y="354" font-size="13" text-anchor="middle">Shed</text>
+
+  <!-- ===================== lamps (glow layer toggles on/off) ===================== -->
+  <!-- Kitchen lamp (animated) -->
+  <ellipse class="lampK" cx="150" cy="150" rx="34" ry="24" fill="url(#lampglow)"/>
+  <!-- static off-state bulbs -->
+  <g class="node-s" stroke-width="2" fill="none">
+    <circle cx="150" cy="150" r="7"/><circle cx="310" cy="150" r="7"/>
+    <circle cx="470" cy="150" r="7"/><circle cx="665" cy="238" r="7"/>
+  </g>
+  <g class="lamp"><circle cx="150" cy="150" r="7" class="lampK"/></g>
+
+  <!-- ===================== nodes (ESP32) + connected dots ===================== -->
+  <!-- Kitchen node: holds Tag A (static) -->
+  <g>
+    <rect class="node-f chip" x="57" y="140" width="30" height="20" rx="3" stroke-width="1.6"/>
+    <path class="chip" stroke-width="1.4" d="M62 140 v-4 M72 140 v-4 M82 140 v-4 M62 160 v4 M72 160 v4 M82 160 v4"/>
+    <text class="muted" x="72" y="154" font-size="7.5" text-anchor="middle">esp</text>
+    <circle class="tA" cx="86" cy="139" r="3.4"/>
+  </g>
+  <!-- Bedroom node: holds Tag B in phase 1 (dot animated) -->
+  <g>
+    <rect class="node-f chip" x="217" y="140" width="30" height="20" rx="3" stroke-width="1.6"/>
+    <path class="chip" stroke-width="1.4" d="M222 140 v-4 M232 140 v-4 M242 140 v-4 M222 160 v4 M232 160 v4 M242 160 v4"/>
+    <text class="muted" x="232" y="154" font-size="7.5" text-anchor="middle">esp</text>
+    <circle class="tB dotB" cx="246" cy="139" r="3.4"/>
+  </g>
+  <!-- Office node: holds Tag B after handoff (dot animated) -->
+  <g>
+    <rect class="node-f chip" x="377" y="140" width="30" height="20" rx="3" stroke-width="1.6"/>
+    <path class="chip" stroke-width="1.4" d="M382 140 v-4 M392 140 v-4 M402 140 v-4 M382 160 v4 M392 160 v4 M402 160 v4"/>
+    <text class="muted" x="392" y="154" font-size="7.5" text-anchor="middle">esp</text>
+    <circle class="tB dotO" cx="406" cy="139" r="3.4"/>
+  </g>
+  <!-- Shed node: holds Tag C (static) -->
+  <g>
+    <rect class="node-f chip" x="575" y="228" width="30" height="20" rx="3" stroke-width="1.6"/>
+    <path class="chip" stroke-width="1.4" d="M580 228 v-4 M590 228 v-4 M600 228 v-4 M580 248 v4 M590 248 v4 M600 248 v4"/>
+    <text class="muted" x="590" y="242" font-size="7.5" text-anchor="middle">esp</text>
+    <circle class="tC" cx="604" cy="227" r="3.4"/>
+  </g>
+
+  <!-- ===================== GATT links ===================== -->
+  <line class="link lA"        x1="110" y1="289" x2="76"  y2="161"/>  <!-- Tag A - Kitchen (static) -->
+  <line class="link lC"        x1="635" y1="304" x2="597" y2="249"/>  <!-- Tag C - Shed (static) -->
+  <line class="link lB linkB-bed" x1="270" y1="289" x2="236" y2="161"/>
+  <line class="link lB linkB-off" x1="430" y1="289" x2="396" y2="161"/>
+
+  <!-- claim-delay countdowns (phase 1) -->
+  <g class="claim mono" font-size="10.5" text-anchor="middle">
+    <text class="ok"    x="232" y="130" font-weight="700">0.24 s</text>
+    <text class="muted" x="72"  y="130">1.36 s</text>
+    <text class="muted" x="392" y="130">1.60 s</text>
+  </g>
+  <text class="win ok mono" x="232" y="119" font-size="9.5" text-anchor="middle" font-weight="700">✓ wins</text>
+  <!-- weakening / release note (phase 2) -->
+  <text class="weak bad mono" x="350" y="250" font-size="10.5" text-anchor="middle" font-weight="700">−86 · −88 · −91 → release</text>
+
+  <!-- ===================== Tag A (Kitchen) — button -> lights ===================== -->
+  <g>
+    <text class="tA" x="110" y="284" font-size="10" text-anchor="middle" font-weight="700">A</text>
+    <circle class="tap tAs" cx="110" cy="300" r="2" fill="none" stroke-width="2.4"/>
+    <rect class="tagfill tAs" x="103" y="289" width="14" height="22" rx="6" stroke-width="2.5"/>
+    <circle class="tA" cx="110" cy="302" r="4"/>
+    <circle class="tA" cx="110" cy="295" r="1.8"/>
+    <text class="muted" x="110" y="329" font-size="10" text-anchor="middle">Kitchen</text>
+    <!-- event pill -->
+    <g class="pill">
+      <rect class="tagfill tAs" x="55" y="312" width="110" height="17" rx="8" stroke-width="1.4"/>
+      <text class="tA mono" x="110" y="324" font-size="8.5" text-anchor="middle" font-weight="700">esphome.itag_button</text>
+    </g>
+  </g>
+
+  <!-- ===================== Tag B (Bedroom -> Office) — claiming + handoff ===================== -->
+  <g class="tagB">
+    <!-- advertise ripples (follow the tag; gated to the advertise windows) -->
+    <g class="advB tBs" fill="none" stroke-width="2">
+      <circle class="pulse" cx="270" cy="300"/>
+      <circle class="pulse" cx="270" cy="300" style="animation-delay:-0.95s"/>
+    </g>
+    <text class="tB" x="270" y="284" font-size="10" text-anchor="middle" font-weight="700">B</text>
+    <rect class="tagfill tBs" x="263" y="289" width="14" height="22" rx="6" stroke-width="2.5"/>
+    <circle class="tB" cx="270" cy="302" r="4"/>
+    <circle class="tB" cx="270" cy="295" r="1.8"/>
+    <text class="badBed muted" x="270" y="329" font-size="10" text-anchor="middle">Bedroom</text>
+    <text class="badOff muted" x="270" y="329" font-size="10" text-anchor="middle">Office</text>
+  </g>
+
+  <!-- ===================== Tag C (Shed) — find-my ===================== -->
+  <g>
+    <g class="beep tCs" fill="none" stroke-width="2.2">
+      <circle class="arc" cx="635" cy="315" r="12"/>
+      <circle class="arc" cx="635" cy="315" r="12" style="animation-delay:-0.7s"/>
+    </g>
+    <text class="tC" x="635" y="299" font-size="10" text-anchor="middle" font-weight="700">C</text>
+    <g class="wiggleC">
+      <rect class="tagfill tCs" x="628" y="304" width="14" height="22" rx="6" stroke-width="2.5"/>
+      <circle class="tC" cx="635" cy="317" r="4"/>
+      <circle class="tC" cx="635" cy="310" r="1.8"/>
+    </g>
+    <!-- no per-tag room label: Tag C is static and the room name sits right below -->
+  </g>
+
+  <!-- ===================== legend ===================== -->
+  <g font-size="11.5">
+    <circle class="tA" cx="150" cy="404" r="5"/><text x="160" y="408">Tag A</text>
+    <circle class="tB" cx="252" cy="404" r="5"/><text x="262" y="408">Tag B</text>
+    <circle class="tC" cx="354" cy="404" r="5"/><text x="364" y="408">Tag C</text>
+  </g>
+  <g font-size="11" class="muted">
+    <rect class="node-f chip" x="145" y="426" width="15" height="10" rx="2" stroke-width="1.4"/><text x="166" y="435">ESP32 node</text>
+    <circle cx="272" cy="431" r="5" fill="url(#lampglow)"/><circle class="node-s" cx="272" cy="431" r="4" fill="none" stroke-width="1.6"/><text x="282" y="435">lamp</text>
+    <line class="link lA" x1="330" y1="431" x2="356" y2="431"/><text x="362" y="435">GATT link</text>
+    <path class="tBs" fill="none" stroke-width="1.8" d="M452 425 a7 7 0 0 1 0 12 M458 421 a12 12 0 0 1 0 20"/><text x="474" y="435">advertise / beep</text>
+  </g>
+</svg>
