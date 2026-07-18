@@ -257,7 +257,6 @@
     <rect class="tagfill tAs" x="103" y="289" width="14" height="22" rx="6" stroke-width="2.5"/>
     <circle class="tA" cx="110" cy="302" r="4"/>
     <circle class="tA" cx="110" cy="295" r="1.8"/>
-    <text class="muted" x="110" y="329" font-size="10" text-anchor="middle">Kitchen</text>
     <!-- event pill -->
     <g class="pill">
       <rect class="tagfill tAs" x="55" y="312" width="110" height="17" rx="8" stroke-width="1.4"/>
@@ -276,8 +275,16 @@
     <rect class="tagfill tBs" x="263" y="289" width="14" height="22" rx="6" stroke-width="2.5"/>
     <circle class="tB" cx="270" cy="302" r="4"/>
     <circle class="tB" cx="270" cy="295" r="1.8"/>
-    <text class="badBed muted" x="270" y="329" font-size="10" text-anchor="middle">Bedroom</text>
-    <text class="badOff muted" x="270" y="329" font-size="10" text-anchor="middle">Office</text>
+    <!-- dynamic "resolved room" chip, kept above the tag so it never collides
+         with the grey room name at the bottom of the room -->
+    <g class="badBed">
+      <rect x="243" y="258" width="54" height="15" rx="7.5" class="tB tBs" fill-opacity="0.18" stroke-width="1.2"/>
+      <text x="270" y="269" font-size="9" text-anchor="middle" font-weight="700">Bedroom</text>
+    </g>
+    <g class="badOff">
+      <rect x="243" y="258" width="54" height="15" rx="7.5" class="tB tBs" fill-opacity="0.18" stroke-width="1.2"/>
+      <text x="270" y="269" font-size="9" text-anchor="middle" font-weight="700">Office</text>
+    </g>
   </g>
 
   <!-- ===================== Tag C (Shed) — find-my ===================== -->
