@@ -1,4 +1,4 @@
-# itags
+# tagalong
 
 **$2 BLE keyfinders as room-aware buttons, find-my beepers, and presence sensors for Home Assistant — no cloud, no vendor app.**
 
@@ -12,7 +12,7 @@ one beeper. This repo turns a handful of them into a whole-home **find-my networ
 and **room-aware light switches** — the tag's button toggles the lights of whatever
 room the tag is currently in.
 
-📖 **[Project site & write-up →](https://jphein.github.io/itags/)**
+📖 **[Project site & write-up →](https://jphein.github.io/tagalong/)**
 
 ## What's in here
 
@@ -21,7 +21,7 @@ room the tag is currently in.
 | **`custom_components/itag/`** | Native HA integration — config flow + Bluetooth auto-discovery, works through HA's Bluetooth stack (local adapter *or* ESPHome BLE proxies). Button events, find/stop beep, room / signal / battery sensors. |
 | **`esphome/itag-node.yaml`** | The **distributed** setup: ESP32 nodes that race to hold each tag's GATT link with *contested claiming* — the node holding the link **is** the room. |
 | **`ha-packages/itag_lights.yaml`** | Room-aware button→lights engine + find/stop scripts + per-tag room sensors (for the ESPHome setup). |
-| **`dashboards/itags-dashboard.yaml`** | "Find My" style Lovelace dashboard. |
+| **`dashboards/tagalong-dashboard.yaml`** | "Find My" style Lovelace dashboard. |
 | **`tools/itag_fleet_check.py`** | Fleet health CLI — node status, who holds which tag, link drop rates. |
 
 ## The tag
@@ -43,11 +43,11 @@ connection.** Something has to hold a link to every tag, all the time.
 
 **1. The custom integration** (simplest — start here): HA holds one link per tag
 through its Bluetooth stack. Install via [HACS](https://hacs.xyz) → custom
-repository `jphein/itags` (type: integration), or copy `custom_components/itag/`
-into your config. *(Fun fact: HACS's URL normalizer strips `tags/` from download
-URLs, which mangles a repo literally named `itags` — installs work via the
-zipball path, but HACS may not render this repo's metadata until the upstream
-bug is fixed. Manual install is unaffected.)* Tags auto-discover in Settings → Devices & Services. You get a
+repository `jphein/tagalong` (type: integration), or copy `custom_components/itag/`
+into your config. *(Fun fact: this project spent its first day named `itags`,
+which uncovered a HACS bug — its URL normalizer strips `tags/` from download
+URLs, mangling any repo whose name ends in "tags". Renaming fixed us; the bug
+is still upstream.)* Tags auto-discover in Settings → Devices & Services. You get a
 button event entity, Find/Stop buttons, and room/signal/battery sensors per tag —
 details in [`custom_components/itag/README.md`](custom_components/itag/README.md).
 

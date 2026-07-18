@@ -21,12 +21,6 @@ jobs:
 
   hacs:
     runs-on: ubuntu-latest
-    # Soft-fail: HACS's downloader strips "tags/" from raw URLs to normalize
-    # release refs (custom_components/hacs/base.py async_download_file), which
-    # mangles this repo's name — jphein/itags/main/... -> jphein/imain/... —
-    # so the hacsjson + integration_manifest checks 404. Upstream bug; flip
-    # this back to hard-fail once fixed.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main

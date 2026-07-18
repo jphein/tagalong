@@ -1,5 +1,5 @@
 {
-  "name": "iTag BLE Tracker",
+  "name": "TagAlong (iTag BLE Tracker)",
   "render_readme": true,
   "homeassistant": "2024.6.0"
 }

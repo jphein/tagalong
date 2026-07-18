@@ -25,7 +25,7 @@
     <circle cx="23" cy="14" r="4.5" fill="#22d3bb"/>
     <circle cx="23" cy="40" r="12" fill="#f5a623"/>
   </g>
-  <text x="150" y="150" font-size="60" font-weight="700" fill="#e9eaf2" letter-spacing="-1">itags</text>
+  <text x="150" y="150" font-size="60" font-weight="700" fill="#e9eaf2" letter-spacing="-1">tagalong</text>
 
   <text x="80" y="270" font-size="62" font-weight="700" fill="#22d3bb" letter-spacing="-1">$2 keyfinders,</text>
   <text x="80" y="342" font-size="62" font-weight="700" fill="#e9eaf2" letter-spacing="-1">room-aware buttons</text>

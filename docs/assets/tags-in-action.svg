@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 452" role="img"
      font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-  <title>itags in action: contested claiming, room handoff, button-to-lights, and whole-home find-my</title>
+  <title>tagalong in action: contested claiming, room handoff, button-to-lights, and whole-home find-my</title>
   <desc>An animated walkthrough of three $2 BLE keyfinder tags across four rooms. Tag B advertises
     and the nearest ESP32 node wins the GATT link; Tag B changes rooms and a closer node re-claims
     it after proximity release; Tag A's button press flows to Home Assistant and toggles the room's
@@ -156,7 +156,7 @@
   <text class="cap p4" x="370" y="26" font-size="17" font-weight="700">④ Find-my — every node races the beep</text>
   <text class="cap p4 mono muted" x="370" y="46" font-size="12">only the node holding the tag can ring it</text>
   <!-- static summary, shown only under prefers-reduced-motion -->
-  <text class="rmcap" x="370" y="26" font-size="16" font-weight="700">itags — connection-based room presence, with no coordinator</text>
+  <text class="rmcap" x="370" y="26" font-size="16" font-weight="700">tagalong — connection-based room presence, with no coordinator</text>
   <text class="rmcap muted" x="370" y="46" font-size="12.5">Contested claiming · room handoff · button → lights · whole-home find-my</text>
 
   <!-- ===================== Home Assistant hub ===================== -->

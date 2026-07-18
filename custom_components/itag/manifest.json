@@ -10,10 +10,10 @@
   "codeowners": ["@jphein"],
   "config_flow": true,
   "dependencies": ["bluetooth_adapters"],
-  "documentation": "https://github.com/jphein/itags",
+  "documentation": "https://github.com/jphein/tagalong",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/jphein/itags/issues",
+  "issue_tracker": "https://github.com/jphein/tagalong/issues",
   "requirements": ["bleak-retry-connector>=3.5.0"],
   "version": "0.1.0"
 }

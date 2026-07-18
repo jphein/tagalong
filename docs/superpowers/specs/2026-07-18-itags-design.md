@@ -1,9 +1,12 @@
-# itags — design (2026-07-18)
+# tagalong — design (2026-07-18)
+
+> Renamed `itags` → `tagalong` same day: avoids the Apple-adjacent i-prefix
+> and sidesteps the HACS `tags/`-suffix URL-mangle bug the first name uncovered.
 
 ## Goal
 
 Extract the iTag A/B/C system from the private `~/Projects/ha` workspace into a
-public repo (`jphein/itags`) with a native custom integration and a GitHub Pages
+public repo (`jphein/tagalong`) with a native custom integration and a GitHub Pages
 write-up, following the smartring / moyoung-watch pattern.
 
 ## Decisions
@@ -29,7 +32,7 @@ write-up, following the smartring / moyoung-watch pattern.
 ## Layout
 
 `custom_components/itag/` · `esphome/itag-node.yaml` · `ha-packages/itag_lights.yaml`
-· `dashboards/itags-dashboard.yaml` · `tools/itag_fleet_check.py` · `docs/`
+· `dashboards/tagalong-dashboard.yaml` · `tools/itag_fleet_check.py` · `docs/`
 (GitHub Pages) · `hacs.json` · AGPL-3.0.
 
 ## Follow-ups
