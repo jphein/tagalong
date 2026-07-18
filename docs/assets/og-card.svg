@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" font-family="'DejaVu Sans','Segoe UI',sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d0f18"/>
+      <stop offset="1" stop-color="#14161f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.28" r="0.6">
+      <stop offset="0" stop-color="#22d3bb" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#22d3bb" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tagbody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2030"/>
+      <stop offset="1" stop-color="#0f1220"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#22d3bb"/>
+
+  <!-- ===== Left: wordmark + copy ===== -->
+  <!-- favicon-style tag glyph -->
+  <g transform="translate(80,92)">
+    <rect x="0" y="0" width="46" height="64" rx="20" fill="none" stroke="#22d3bb" stroke-width="6"/>
+    <circle cx="23" cy="14" r="4.5" fill="#22d3bb"/>
+    <circle cx="23" cy="40" r="12" fill="#f5a623"/>
+  </g>
+  <text x="150" y="150" font-size="60" font-weight="700" fill="#e9eaf2" letter-spacing="-1">itags</text>
+
+  <text x="80" y="270" font-size="62" font-weight="700" fill="#22d3bb" letter-spacing="-1">$2 keyfinders,</text>
+  <text x="80" y="342" font-size="62" font-weight="700" fill="#e9eaf2" letter-spacing="-1">room-aware buttons</text>
+  <text x="80" y="404" font-size="38" font-weight="400" fill="#9aa0b4">for Home Assistant — find-my + lights,</text>
+  <text x="80" y="450" font-size="38" font-weight="400" fill="#9aa0b4">no cloud, no coordinator.</text>
+
+  <!-- badges -->
+  <g font-size="24" font-weight="600">
+    <g transform="translate(80,500)">
+      <rect x="0" y="0" width="150" height="48" rx="24" fill="#14161f" stroke="#2b3550" stroke-width="1.5"/>
+      <text x="30" y="32" fill="#3ad07f">no cloud</text>
+    </g>
+    <g transform="translate(246,500)">
+      <rect x="0" y="0" width="230" height="48" rx="24" fill="#14161f" stroke="#2b3550" stroke-width="1.5"/>
+      <text x="26" y="32" fill="#3ad07f">no vendor app</text>
+    </g>
+    <g transform="translate(492,500)">
+      <rect x="0" y="0" width="120" height="48" rx="24" fill="#14161f" stroke="#2b3550" stroke-width="1.5"/>
+      <text x="28" y="32" fill="#9aa0b4">HACS</text>
+    </g>
+    <g transform="translate(628,500)">
+      <rect x="0" y="0" width="158" height="48" rx="24" fill="#14161f" stroke="#2b3550" stroke-width="1.5"/>
+      <text x="26" y="32" fill="#9aa0b4">AGPL-3.0</text>
+    </g>
+  </g>
+
+  <!-- ===== Right: keyfinder tag with beep + room race ===== -->
+  <g transform="translate(880,150)">
+    <!-- beep waves -->
+    <g stroke="#22d3bb" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.9">
+      <path d="M196 132 q40 55 0 110"/>
+      <path d="M222 106 q66 88 0 162"/>
+    </g>
+    <!-- tag body -->
+    <rect x="40" y="40" width="150" height="240" rx="58" fill="url(#tagbody)" stroke="#22d3bb" stroke-width="6"/>
+    <circle cx="115" cy="78" r="12" fill="none" stroke="#22d3bb" stroke-width="6"/>
+    <circle cx="115" cy="180" r="56" fill="#f5a623" opacity="0.16"/>
+    <circle cx="115" cy="180" r="42" fill="#f5a623"/>
+  </g>
+
+  <!-- room race caption -->
+  <g transform="translate(742,500)" font-size="22" fill="#9aa0b4" font-family="'DejaVu Sans Mono','DejaVu Sans',monospace">
+    <circle cx="10" cy="-7" r="7" fill="#22d3bb"/>
+    <text x="30" y="0" fill="#c7ccda">nearest node = the room</text>
+  </g>
+</svg>

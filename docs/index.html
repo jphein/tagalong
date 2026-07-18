@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>itags — $2 keyfinders as room-aware buttons for Home Assistant</title>
+<meta name="description" content="Turn $2 BLE 'iTAG' keyfinders into a whole-home find-my network and room-aware light buttons for Home Assistant — connection-based room presence with contested claiming, no cloud, no vendor app.">
+
+<!-- Open Graph / social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="itags">
+<meta property="og:url" content="https://jphein.github.io/itags/">
+<meta property="og:title" content="itags — $2 keyfinders as room-aware buttons for Home Assistant">
+<meta property="og:description" content="Three $2 BLE keyfinders become a whole-home find-my network and room-aware light buttons for Home Assistant. The trick: connection-based room presence with contested claiming — the nearest ESP32 node wins the link and becomes the room. No cloud, no vendor app.">
+<meta property="og:image" content="https://jphein.github.io/itags/assets/og-card.png">
+<meta property="og:image:secure_url" content="https://jphein.github.io/itags/assets/og-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="itags — a $2 BLE keyfinder tag, its button press lighting up the nearest room; connection-based room presence for Home Assistant">
+<link rel="canonical" href="https://jphein.github.io/itags/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="itags — $2 keyfinders as room-aware buttons for Home Assistant">
+<meta name="twitter:description" content="No cloud, no vendor app: $2 BLE keyfinders become room-aware light buttons and a whole-home find-my network for Home Assistant, on connection-based room presence with contested claiming.">
+<meta name="twitter:image" content="https://jphein.github.io/itags/assets/og-card.png">
+<meta name="theme-color" content="#0c0d14">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='17' y='11' width='30' height='42' rx='13' fill='none' stroke='%2312b8a0' stroke-width='5'/%3E%3Ccircle cx='32' cy='20' r='3.4' fill='%2312b8a0'/%3E%3Ccircle cx='32' cy='38' r='9' fill='%23f5a623'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#f6f7fb; --panel:#ffffff; --ink:#161824; --muted:#5b6072; --line:#e5e7f0;
+    --accent:#0e9c8a; --accent2:#d97a0c; --ok:#12a150; --bad:#e5484d; --code:#f0f1f7;
+    --shadow:0 1px 3px rgba(20,24,40,.06),0 8px 30px rgba(20,24,40,.06);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#0c0d14; --panel:#14161f; --ink:#e9eaf2; --muted:#9aa0b4; --line:#242736;
+    --accent:#22d3bb; --accent2:#f5a623; --ok:#3ad07f; --bad:#ff6b6f; --code:#171a24;
+    --shadow:0 1px 3px rgba(0,0,0,.4),0 12px 40px rgba(0,0,0,.35);
+  }}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  code{background:var(--code);padding:.12em .4em;border-radius:5px;font-size:.88em}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:16px;
+    overflow-x:auto;font-size:.86em;line-height:1.5}
+
+  header.hero{padding:76px 0 54px;text-align:center;position:relative;overflow:hidden}
+  header.hero::before{content:"";position:absolute;inset:-40% -20% auto;height:440px;
+    background:radial-gradient(60% 100% at 50% 0,rgba(18,184,160,.20),transparent 70%);
+    z-index:0}
+  .hero-tag{width:76px;height:76px;position:relative;z-index:1;margin:0 auto 8px;display:block}
+  h1{font-size:clamp(2.1rem,5vw,3.1rem);margin:.15em 0 .1em;letter-spacing:-.02em;position:relative;z-index:1}
+  .price{color:var(--accent2)}
+  .tag{color:var(--muted);font-size:1.12rem;max-width:660px;margin:.4em auto 1.4em;position:relative;z-index:1}
+  .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1}
+  .badge{font-size:.78rem;padding:5px 11px;border-radius:999px;border:1px solid var(--line);
+    background:var(--panel);color:var(--muted)}
+  .badge.on{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}
+  .cta{display:inline-flex;gap:8px;margin-top:22px;position:relative;z-index:1;flex-wrap:wrap;justify-content:center}
+  .btn{padding:11px 20px;border-radius:11px;font-weight:600;font-size:.95rem}
+  .btn.primary{background:var(--accent);color:#04110e}
+  .btn.ghost{border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+
+  section{padding:34px 0;border-top:1px solid var(--line)}
+  h2{font-size:1.5rem;letter-spacing:-.01em;margin:.2em 0 .5em}
+  h2 .em{font-size:1.15em;vertical-align:-2px;margin-right:.3em}
+  .lead{color:var(--muted)}
+  .cols{display:grid;grid-template-columns:1.15fr .85fr;gap:26px;align-items:center}
+  @media(max-width:680px){.cols{grid-template-columns:1fr}}
+  figure{margin:0}
+  figcaption{color:var(--muted);font-size:.85rem;margin-top:10px;text-align:center}
+
+  .callout{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px;margin:16px 0;box-shadow:var(--shadow)}
+  .callout.amber{border-left-color:var(--accent2)}
+
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.94rem}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+  td code{white-space:nowrap}
+  .yes{color:var(--ok);font-weight:600}
+  .no{color:var(--bad);font-weight:600}
+
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media(max-width:680px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .card h3{margin:.1em 0 .3em;font-size:1.02rem}
+  .card p{margin:0;color:var(--muted);font-size:.92rem}
+
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;
+    box-shadow:var(--shadow);overflow-x:auto}
+  .flow pre{background:none;border:none;padding:0;margin:0;color:var(--ink)}
+  .flow .b{color:var(--accent);font-weight:600}
+  .flow .a{color:var(--accent2);font-weight:600}
+
+  .steps{list-style:none;counter-reset:s;padding:0;margin:14px 0 0}
+  .steps li{counter-increment:s;position:relative;padding:0 0 16px 46px;color:var(--muted)}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:30px;height:30px;
+    display:grid;place-items:center;border-radius:50%;background:var(--accent);color:#04110e;
+    font-weight:700;font-size:.9rem}
+  .steps li:not(:last-child)::after{content:"";position:absolute;left:14px;top:32px;bottom:2px;
+    width:2px;background:var(--line)}
+  .steps b{color:var(--ink)}
+
+  footer{padding:40px 0 60px;color:var(--muted);font-size:.9rem;text-align:center;border-top:1px solid var(--line)}
+
+  .share{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+  .share a,.share button{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;
+    border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    font:600 .9rem/1 inherit;cursor:pointer;box-shadow:var(--shadow)}
+  .share a:hover,.share button:hover{border-color:var(--accent);text-decoration:none}
+  .share svg{width:17px;height:17px;flex:none}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <svg class="hero-tag" viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="17" y="11" width="30" height="42" rx="13" fill="none" stroke="var(--accent)" stroke-width="5"/>
+      <circle cx="32" cy="20" r="3.4" fill="var(--accent)"/>
+      <circle cx="32" cy="38" r="9" fill="var(--accent2)"/>
+    </svg>
+    <h1>itags</h1>
+    <p class="tag">Three <span class="price">$2</span> BLE keyfinders, turned into a whole-home
+      <strong>find-my</strong> network and <strong>room-aware light buttons</strong> for Home
+      Assistant — on a self-healing presence trick with <strong>no coordinator</strong>, no cloud,
+      no vendor app.</p>
+    <div class="badges">
+      <span class="badge on">☁︎ no cloud</span>
+      <span class="badge on">📵 no vendor app</span>
+      <span class="badge">🏠 Home Assistant</span>
+      <span class="badge">📦 HACS</span>
+      <span class="badge">⚖︎ AGPL-3.0</span>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/jphein/itags">View on GitHub →</a>
+      <a class="btn ghost" href="#claiming">How it works</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section>
+    <div class="cols">
+      <div>
+        <h2>The $2 keyfinder</h2>
+        <p class="lead">The classic
+          <a href="https://www.aliexpress.us/item/3256810519199817.html" rel="noopener" target="_blank">AliExpress "iTAG"</a>
+          anti-lost keyfinder is about as cheap as Bluetooth gets: a Telink chip, a CR2032 coin
+          cell, <strong>one button</strong>, <strong>one beeper</strong> — two or three dollars
+          shipped. This project has three, one per family member.</p>
+        <p class="lead">There's no vendor cloud to escape and barely any firmware to reverse. The
+          whole tag speaks only over a <strong>GATT connection</strong>: the button reports on a
+          notify characteristic, and a single write makes it beep. No connection, no button — so
+          the interesting part isn't the tag. It's <em>who's connected to it</em>.</p>
+      </div>
+      <figure>
+        <svg viewBox="0 0 260 300" role="img" aria-label="A BLE keyfinder tag: rounded body, keyring hole, one big button, beep waves"
+             style="width:100%;max-width:220px;display:block;margin:0 auto;filter:drop-shadow(0 8px 22px rgba(0,0,0,.28))">
+          <defs>
+            <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="var(--panel)"/>
+              <stop offset="1" stop-color="var(--code)"/>
+            </linearGradient>
+          </defs>
+          <rect x="55" y="30" width="150" height="240" rx="58" fill="url(#body)" stroke="var(--accent)" stroke-width="5"/>
+          <circle cx="130" cy="66" r="11" fill="none" stroke="var(--accent)" stroke-width="5"/>
+          <circle cx="130" cy="168" r="52" fill="var(--accent2)" opacity=".16"/>
+          <circle cx="130" cy="168" r="40" fill="var(--accent2)"/>
+          <circle cx="130" cy="168" r="40" fill="none" stroke="var(--accent2)" stroke-width="2" opacity=".5"/>
+          <g stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" opacity=".85">
+            <path d="M212 138 q22 30 0 60"/>
+            <path d="M226 122 q34 46 0 92"/>
+          </g>
+        </svg>
+        <figcaption>One button, one beeper, a CR2032 — and a GATT link that decides which room it's in.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="claiming">
+    <h2><span class="em">📍</span>The elegant core: rooms decide themselves</h2>
+    <p class="lead">Every ESP32 node (running ESPHome) hears the tag advertise. Instead of a central
+      brain picking a winner, the nodes <strong>race</strong> — and the race is rigged in favour of
+      the closest one:</p>
+    <div class="callout">
+      Each node delays its connect attempt in proportion to how <em>weak</em> it hears the tag:
+      <code>delay = (−55 − rssi) × 80&nbsp;ms</code>, clamped to 3&nbsp;s. The nearest node has the
+      shortest delay, grabs the GATT link first, and every other node — seeing the tag stop
+      advertising — quietly backs off. <strong>The node holding the link <em>is</em> the room.</strong>
+    </div>
+    <div class="flow"><pre>
+ tag advertises ─▶ <span class="b">Kitchen</span> node   rssi −58  →  delay  <span class="b">240 ms</span>  ┐
+                ─▶ <span class="b">Hall</span> node      rssi −72  →  delay 1360 ms  ├─▶  closest node wins the
+                ─▶ <span class="b">Bedroom</span> node   rssi −81  →  delay 2080 ms  ┘    link  =  "the room"
+
+ link RSSI sags ─▶ 3 samples &lt; <span class="a">−85 dBm</span> ─▶ node disconnects ─▶ tag re-advertises ─▶ a closer node re-claims</pre></div>
+    <div class="cards" style="margin-top:16px">
+      <div class="card"><h3>🏁 Contested claiming</h3><p>The RSSI-weighted head-start means the
+        physically nearest node connects first, house-wide, with no coordinator and no shared
+        state. A node only commits the connection if the tag is <em>still</em> advertising — proof
+        nobody closer already grabbed it.</p></div>
+      <div class="card"><h3>🔄 Proximity release</h3><p>While connected, each node watches its
+        link RSSI. Three consecutive samples below <code>−85&nbsp;dBm</code> means the tag walked
+        away: the node drops the link, the tag re-advertises, and whichever node now hears it best
+        claims it. Room handoff, fully distributed.</p></div>
+      <div class="card"><h3>🧭 Room sensors</h3><p>Because "connected here" equals "in this room,"
+        each tag gets a plain-language location in Home Assistant — <em>Tag A: Kitchen</em> — with
+        no trilateration, no calibration, and no fixed anchors to survey.</p></div>
+      <div class="card"><h3>🪫 Frugal by design</h3><p>Only one node ever holds a given tag, and
+        only long enough to serve a button or a beep before proximity release frees it. A coin cell
+        doesn't mind.</p></div>
+    </div>
+  </section>
+
+  <section id="lights">
+    <h2><span class="em">💡</span>Button → the lights in <em>this</em> room</h2>
+    <p class="lead">Press the tag's button and the lights in whatever room you're standing in
+      toggle. There's no per-tag configuration of "which lights" — the room resolves itself:</p>
+    <ol class="steps">
+      <li>The connected node fires a Home Assistant event <b>tagged with its own name</b> — it
+        already knows it's the one holding the link.</li>
+      <li>HA resolves <b>node → area</b>, then toggles every entity in that area carrying the
+        <code>button_lights</code> label. Any domain — lights, switches — opts in just by wearing
+        the label.</li>
+      <li>If the link looks weak at press time, a <b>correction path</b> releases the tag and lets
+        the co-located node re-claim it <em>before</em> toggling — so a press never lights up the
+        room you just left.</li>
+    </ol>
+    <p class="lead" style="margin-top:14px">Adding a room is additive: point another node's
+      <code>ble_client</code> at the tag and label that room's lights. Nothing else changes.</p>
+  </section>
+
+  <section id="findmy">
+    <h2><span class="em">🔔</span>Whole-home find-my</h2>
+    <p class="lead">Lost a tag? Tap its tile on the dashboard and <strong>every node races to write
+      the beep</strong> (<code>1802/2a06 → 0x01</code>). Whichever one currently holds — or wins —
+      the link makes the tag ring, wherever in the house it happens to be. Tap again to silence it
+      (<code>0x00</code>).</p>
+    <div class="callout amber">
+      Paired with the per-tag room sensors, "find" stops being guesswork: the dashboard already
+      says <em>Tag&nbsp;A: Kitchen</em> before you ever make it beep. A <code>$2</code> tag with a
+      whole-home locator built entirely on connection presence.</div>
+  </section>
+
+  <section id="run">
+    <h2><span class="em">🧩</span>Two ways to run it</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>🎯 The native integration <span style="color:var(--accent2)">· start here</span></h3>
+        <p>A custom <code>itag</code> integration with a config flow and <strong>Bluetooth
+        auto-discovery</strong> through Home Assistant's own stack. It works over your existing
+        <strong>ESPHome BLE proxies</strong> — no local adapter required. You get a button event
+        entity (plus an <code>itag_button</code> bus event), Find / Stop&nbsp;beep buttons, and
+        connected / room / RSSI sensors. It reads battery <em>opportunistically</em> — for tags
+        that expose it — and silences its own link-loss so a normal disconnect never triggers a
+        phantom beep.</p>
+      </div>
+      <div class="card">
+        <h3>🛰️ The distributed ESPHome fleet <span style="color:var(--muted)">· advanced</span></h3>
+        <p>The multi-room setup that runs in the reference house: an ESPHome node per room, all
+        doing the contested-claiming and proximity-release dance from
+        <a href="#claiming">above</a>. This is where room-aware button&nbsp;→&nbsp;lights and
+        instant house-wide find-my come from. Ships in <code>esphome/</code> alongside the HA
+        package that wires the button events to your rooms' lights.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="gatt">
+    <h2><span class="em">🔬</span>The tag, over GATT</h2>
+    <p class="lead">Everything the tag does lives behind a connection. The three buttoned tags this
+      project drives expose the button and the beeper; battery is present only on some variants of
+      the family, so the integration treats it as a bonus.</p>
+    <table>
+      <thead><tr><th>Service</th><th>Char</th><th>Does</th><th>On these tags</th></tr></thead>
+      <tbody>
+        <tr><td><code>ffe0</code> vendor (Telink)</td><td><code>ffe1</code></td>
+          <td>Button press — notify</td><td class="yes">✔ the button</td></tr>
+        <tr><td><code>1802</code> Immediate Alert</td><td><code>2a06</code></td>
+          <td>Beep — write <code>0x01</code> / <code>0x00</code></td><td class="yes">✔ find-my</td></tr>
+        <tr><td><code>180f</code> Battery</td><td><code>2a19</code></td>
+          <td>Battery % — read/notify</td><td class="no">✘ not exposed (opportunistic elsewhere)</td></tr>
+      </tbody>
+    </table>
+    <p class="lead" style="font-size:.9rem">MACs shown in the repo are placeholders like
+      <code>AA:BB:CC:DD:EE:01</code>; these tags advertise a static-random address that can rotate
+      after a battery swap.</p>
+  </section>
+
+  <section id="repo">
+    <h2><span class="em">📂</span>What's in the repo</h2>
+    <table>
+      <tbody>
+        <tr><td><code>custom_components/itag/</code></td><td>The native Home Assistant integration — config flow, Bluetooth auto-discovery, button + beep + room/RSSI/battery entities.</td></tr>
+        <tr><td><code>esphome/</code></td><td>The distributed node firmware: contested claiming, proximity release, per-tag button notify and find/stop beep.</td></tr>
+        <tr><td><code>ha-packages/itag_lights.yaml</code></td><td>The room-aware button→lights engine: node→area resolution, the <code>button_lights</code> label convention, weak-link correction, and find/stop scripts.</td></tr>
+        <tr><td><code>dashboards/</code></td><td>Lovelace dashboards — per-tag room, find/stop tiles, fleet health.</td></tr>
+        <tr><td><code>tools/itag_fleet_check.py</code></td><td>A fleet-health CLI: per-node reachability, which tag each node holds, per-tag room, and drop/flap counts over a time window.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="install">
+    <h2><span class="em">⚡</span>Quick start</h2>
+    <p class="lead">Install the integration through HACS as a custom repository, then let HA
+      discover the tag:</p>
+    <pre>HACS → ⋮ → Custom repositories
+  Repository:  https://github.com/jphein/itags
+  Category:    Integration
+
+# then, in Home Assistant:
+Settings → Devices &amp; Services → Add Integration → "itag"
+#   → auto-discovers tags seen by your ESPHome BLE proxies</pre>
+    <p class="lead">For the multi-room button→lights and house-wide find-my, add the
+      <code>esphome/</code> node config to each room and drop <code>ha-packages/itag_lights.yaml</code>
+      into your packages — <a href="https://github.com/jphein/itags#readme">full instructions →</a></p>
+  </section>
+
+  <section style="text-align:center">
+    <h2><span class="em">📣</span>Share this project</h2>
+    <div class="share">
+      <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fjphein.github.io%2Fitags%2F"
+         target="_blank" rel="noopener" aria-label="Share on Facebook">
+        <svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12a12 12 0 1 0-13.9 11.9v-8.4H7.1V12h3V9.4c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.4A12 12 0 0 0 24 12z"/></svg>
+        Facebook</a>
+      <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fjphein.github.io%2Fitags%2F&text=%242%20BLE%20keyfinders%2C%20turned%20into%20room-aware%20light%20buttons%20%2B%20a%20whole-home%20find-my%20network%20for%20Home%20Assistant%20%E2%80%94%20no%20cloud%2C%20no%20coordinator."
+         target="_blank" rel="noopener" aria-label="Share on X">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-6.8 7.8L23.3 22h-6.3l-4.9-6.4L6.4 22H3.3l7.3-8.3L1 2h6.5l4.4 5.9L18.9 2zm-1.1 18h1.7L7.4 3.8H5.6L17.8 20z"/></svg>
+        X</a>
+      <a href="https://www.reddit.com/submit?url=https%3A%2F%2Fjphein.github.io%2Fitags%2F&title=%242%20keyfinders%20as%20room-aware%20buttons%20%2B%20find-my%20for%20Home%20Assistant%20(no%20cloud%2C%20no%20coordinator)"
+         target="_blank" rel="noopener" aria-label="Share on Reddit">
+        <svg viewBox="0 0 24 24" fill="#FF4500"><circle cx="12" cy="12" r="12" fill="#FF4500"/><path fill="#fff" d="M19.6 12c0-.9-.7-1.6-1.6-1.6-.4 0-.8.2-1.1.4-1-.7-2.5-1.2-4.1-1.3l.8-3.3 2.4.6c0 .8.6 1.4 1.4 1.4s1.4-.6 1.4-1.4S18.2 5.4 17.4 5.4c-.5 0-1 .3-1.2.7l-2.8-.7c-.2 0-.3.1-.4.3l-.9 3.8c-1.7 0-3.2.5-4.3 1.3-.3-.3-.7-.4-1.1-.4-.9 0-1.6.7-1.6 1.6 0 .6.4 1.2.9 1.4v.5c0 2.4 2.8 4.4 6.2 4.4s6.2-2 6.2-4.4v-.5c.5-.3.8-.8.8-1.4zM8.6 13.1c0-.6.5-1.1 1.1-1.1s1.1.5 1.1 1.1-.5 1.1-1.1 1.1-1.1-.5-1.1-1.1zm6.3 3.2c-.8.8-2.2.8-2.9.8s-2.2-.1-2.9-.8c-.1-.1-.1-.3 0-.4.1-.1.3-.1.4 0 .5.5 1.5.7 2.5.7s2-.2 2.5-.7c.1-.1.3-.1.4 0 .1.1.1.3 0 .4zm-.2-2.1c-.6 0-1.1-.5-1.1-1.1s.5-1.1 1.1-1.1 1.1.5 1.1 1.1-.5 1.1-1.1 1.1z"/></svg>
+        Reddit</a>
+      <a href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fjphein.github.io%2Fitags%2F&t=%242%20keyfinders%20as%20room-aware%20buttons%20for%20Home%20Assistant%20(no%20coordinator)"
+         target="_blank" rel="noopener" aria-label="Share on Hacker News">
+        <svg viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#FF6600"/><path fill="#fff" d="M11 17v-4L7.2 6h2l2.8 5.2L14.8 6h2L13 13v4h-2z"/></svg>
+        Hacker News</a>
+      <a href="https://hackaday.com/submit-a-tip/" target="_blank" rel="noopener"
+         aria-label="Send this to the Hackaday tip line">
+        <svg viewBox="0 0 24 24"><rect width="24" height="24" rx="12" fill="#1b1b1b"/><g fill="#fff"><circle cx="12" cy="10.4" r="5.6"/><rect x="9" y="14.2" width="6" height="3.4" rx="1.2"/></g><g fill="#1b1b1b"><circle cx="9.8" cy="10" r="1.6"/><circle cx="14.2" cy="10" r="1.6"/><rect x="11.35" y="12" width="1.3" height="2" rx="0.6"/></g><g stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M5.2 17.8 L9.4 14.6"/><path d="M18.8 17.8 L14.6 14.6"/><path d="M5.2 13.4 L9.4 16.6"/><path d="M18.8 13.4 L14.6 16.6"/></g></svg>
+        Tip Hackaday</a>
+      <button id="native-share" aria-label="Share via your apps (Instagram, WhatsApp, …)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.6l6.6-3.2M8.7 13.4l6.6 3.2"/></svg>
+        <span id="native-share-label">Share… (Instagram &amp; more)</span>
+      </button>
+    </div>
+    <p class="lead" style="font-size:.85rem;margin-top:12px">On a phone, “Share…” opens your
+      native share sheet — Instagram, WhatsApp, Messenger and friends live there.</p>
+  </section>
+
+</main>
+
+<script>
+(function(){
+  var url="https://jphein.github.io/itags/";
+  var text="$2 BLE keyfinders, turned into room-aware light buttons and a whole-home find-my network for Home Assistant — no cloud, no coordinator.";
+  var btn=document.getElementById("native-share"),
+      lbl=document.getElementById("native-share-label");
+  btn.addEventListener("click",function(){
+    if(navigator.share){
+      navigator.share({title:"itags",text:text,url:url}).catch(function(){});
+    }else{
+      navigator.clipboard.writeText(url).then(function(){
+        lbl.textContent="Link copied!";
+        setTimeout(function(){lbl.textContent="Share… (Instagram & more)";},1800);
+      });
+    }
+  });
+})();
+</script>
+
+<footer class="wrap">
+  <a href="https://github.com/jphein/itags">GitHub repo</a> ·
+  sister projects <a href="https://jphein.github.io/smartring/">smartring</a> &amp;
+  <a href="https://github.com/jphein/moyoung-watch">moyoung-watch</a> ·
+  licensed <a href="https://github.com/jphein/itags/blob/main/LICENSE">AGPL-3.0</a><br>
+  Not affiliated with any tag vendor. Built with Home Assistant + ESPHome.
+</footer>
+
+</body>
+</html>
