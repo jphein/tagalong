@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient id="tagbody" x1="0" x2="0" y1="0" y2="1">
+   <stop offset="0" stop-color="#1b2030"/>
+   <stop offset="1" stop-color="#0f1220"/>
+  </linearGradient>
+ </defs>
+ <!-- ===== Left: wordmark + copy ===== -->
+ <!-- favicon-style tag glyph -->
+ <!-- badges -->
+ <!-- ===== Right: keyfinder tag with beep + room race ===== -->
+ <!-- room race caption -->
+ <g class="layer">
+  <title>Layer 1</title>
+  <g id="svg_26" transform="translate(0 31.79) translate(-28.495 0) translate(100.001 430.025) scale(1.18269 1.18269) translate(-100.001 -430.025) translate(0 0.98) matrix(1.44185 0 0 1.44185 43.3272 24.3272)">
+   <!-- beep waves -->
+   <g fill="none" id="svg_27" opacity="0.9" stroke="#22d3bb" stroke-linecap="round" stroke-width="7">
+    <path d="m196,132q40,55 0,110" id="svg_28"/>
+    <path d="m222,106q66,88 0,162" id="svg_29"/>
+   </g>
+   <!-- tag body -->
+   <rect fill="url(#tagbody)" height="240" id="svg_30" rx="58" stroke="#22d3bb" stroke-width="6" width="150" x="40" y="40"/>
+   <circle cx="115" cy="78" fill="none" id="svg_31" r="12" stroke="#22d3bb" stroke-width="6"/>
+   <circle cx="115" cy="180" fill="#f5a623" id="svg_32" opacity="0.16" r="56"/>
+   <circle cx="115" cy="180" fill="#f5a623" id="svg_33" r="42"/>
+  </g>
+ </g>
+</svg>
