@@ -56,7 +56,7 @@ class ITagRescanButton(ITagEntity, ButtonEntity):
     """Drop the link briefly so the room can be re-derived from fresh adverts."""
 
     _attr_name = "Rescan room"
-    _attr_icon = "mdi:map-marker-refresh"
+    _attr_icon = "mdi:map-marker-down"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: ITagCoordinator) -> None:
