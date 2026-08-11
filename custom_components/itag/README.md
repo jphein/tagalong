@@ -11,7 +11,7 @@ with `active: true` connections. No YAML required.
 | `event.<tag>_button` | The physical button (`ffe0/ffe1` notify) — also fired on the bus as `itag_button` with `address`, `name`, `room` |
 | `button.<tag>_find` / `button.<tag>_stop_ringing` | Beep / silence (Immediate Alert `1802/2a06`) |
 | `device_tracker.<tag>` | `home` while any proxy hears/holds the tag, `not_home` otherwise — add it to a **person** to track home/away |
-| `sensor.<tag>_room` | Room = the proxy holding the GATT link (or the freshest/strongest scanner while disconnected) |
+| `sensor.<tag>_room` | Room = the **HA area** of the proxy holding the GATT link (or of the freshest/strongest scanner while disconnected); falls back to parsing the proxy's name |
 | `sensor.<tag>_signal` | Last advert RSSI (diagnostic) |
 | `sensor.<tag>_battery` | GATT `180F` battery — only some iTAG variants expose it; stays unavailable otherwise |
 | `binary_sensor.<tag>_connected` / `_ringing` | Link + beep state |

@@ -41,6 +41,7 @@ class ITagRoomSensor(ITagEntity, SensorEntity):
         data = self.coordinator.data or {}
         return {
             "nearest_proxy": data.get("nearest_proxy"),
+            "nearest_source": data.get("nearest_source"),  # scanner MAC -> which proxy device
             "last_seen": data.get("last_seen"),
         }
 
