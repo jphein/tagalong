@@ -25,6 +25,8 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import close_stale_connections, establish_connection
 from homeassistant.components import bluetooth
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -56,6 +58,62 @@ def proxy_to_room(name: Optional[str]) -> Optional[str]:
     return " ".join(parts).title() or base
 
 
+def _mac_offset(mac: Optional[str], offset: int) -> Optional[str]:
+    """Add ``offset`` to a MAC's last octet, or None if it would leave 00-FF.
+
+    ESP32 derives every MAC from one base by that offset — WiFi STA, +1 AP, +2 BLE,
+    +3 Ethernet — and never carries, so neither do we.
+    """
+    base = dr.format_mac(mac or "")
+    if len(base) != 17:  # format_mac passes non-MACs through unchanged
+        return None
+    try:
+        octet = int(base[-2:], 16) + offset
+    except ValueError:
+        return None
+    return f"{base[:-2]}{octet:02x}" if 0 <= octet <= 255 else None
+
+
+def scanner_area(hass: HomeAssistant, source: Optional[str]) -> Optional[str]:
+    """Name of the HA area assigned to the proxy behind a scanner ``source``.
+
+    Three device-registry entries can carry that area, so try them in the order a
+    user is likely to have set it (the order bermuda settled on):
+
+    1. the device the *bluetooth* integration creates per scanner (HA 2025.2+),
+       keyed ``("bluetooth", <scanner MAC>)``;
+    2. the proxy's own device (ESPHome/Shelly), via ``source_device_id`` on the
+       per-scanner ``bluetooth`` config entry HA registers;
+    3. that same device found by MAC arithmetic — ESPHome reports the ESP32's BLE
+       MAC as the scanner source while its device entry holds the WiFi MAC.
+
+    An entry with no area is skipped rather than accepted, so the area can live on
+    whichever page the user actually used.
+    """
+    if not source:
+        return None
+    devreg = dr.async_get(hass)
+    candidates = [devreg.async_get_device(
+        connections={(dr.CONNECTION_BLUETOOTH, source.upper())})]
+    for entry in hass.config_entries.async_entries("bluetooth"):
+        if (entry.unique_id or "").upper() == source.upper():
+            if device_id := entry.data.get("source_device_id"):
+                candidates.append(devreg.async_get(device_id))
+            break
+    for offset in range(-3, 3):
+        if (alt := _mac_offset(source, offset)) is not None:
+            candidates.append(devreg.async_get_device(connections={
+                (dr.CONNECTION_BLUETOOTH, alt.upper()),
+                (dr.CONNECTION_NETWORK_MAC, alt)}))
+    device = next((d for d in candidates if d is not None and d.area_id), None)
+    if device is None:
+        _LOGGER.debug("scanner %s has no area — assign one on its Bluetooth or "
+                      "proxy device page; falling back to name parsing", source)
+        return None
+    area = ar.async_get(hass).async_get_area(device.area_id)
+    return area.name if area else None
+
+
 class ITagCoordinator(DataUpdateCoordinator):
     """Owns the BLE connection to one tag and exposes its operations."""
 
@@ -74,6 +132,7 @@ class ITagCoordinator(DataUpdateCoordinator):
         self._suspend_until = 0.0             # rescan: don't reconnect before this
         self._last_room: Optional[str] = None
         self._last_proxy: Optional[str] = None
+        self._last_source: Optional[str] = None    # MAC of that proxy -> its HA area
         self._last_rssi: Optional[int] = None
         self._connected_via: Optional[str] = None  # scanner name holding the link
         self._ringing = False
@@ -185,6 +244,7 @@ class ITagCoordinator(DataUpdateCoordinator):
         try:
             source = (ble_device.details or {}).get("source")
             if source:
+                self._last_source = source
                 scanner = bluetooth.async_scanner_by_source(self.hass, source)
                 if scanner is not None:
                     return scanner.name or source
@@ -283,11 +343,13 @@ class ITagCoordinator(DataUpdateCoordinator):
         """
         prev_room = data.get("room")
         if self.connected:
-            room = proxy_to_room(self._connected_via)
+            room = (scanner_area(self.hass, self._last_source)
+                    or proxy_to_room(self._connected_via))
             if room:
                 self._last_room, self._last_proxy = room, self._connected_via
             data["room"] = self._last_room or "connected"
             data["nearest_proxy"] = self._connected_via or self._last_proxy
+            data["nearest_source"] = self._last_source
             data["nearest_rssi"] = self._last_rssi
             data["last_seen"] = dt_util.utcnow()
             return data.get("room") != prev_room
@@ -295,12 +357,14 @@ class ITagCoordinator(DataUpdateCoordinator):
         now = self.hass.loop.time()
         proxies: dict[str, int] = {}
         ages: dict[str, float] = {}
+        sources: dict[str, str] = {}
         for sd in bluetooth.async_scanner_devices_by_address(self.hass, self.address, False):
             adv = sd.advertisement
             if adv is None or adv.rssi is None:
                 continue
             name = sd.scanner.name or sd.scanner.source
             proxies[name] = adv.rssi
+            sources[name] = sd.scanner.source
             ts = getattr(sd.scanner, "discovered_device_timestamps", {}).get(self.address)
             if ts is not None:
                 ages[name] = now - ts
@@ -318,20 +382,25 @@ class ITagCoordinator(DataUpdateCoordinator):
             if self._last_proxy in fresh and nearest != self._last_proxy:
                 if score(nearest) - score(self._last_proxy) < ROOM_SWITCH_MARGIN:
                     chosen = self._last_proxy
-            self._last_room = proxy_to_room(chosen)
+            self._last_source = sources.get(chosen)
+            self._last_room = (scanner_area(self.hass, self._last_source)
+                               or proxy_to_room(chosen))
             self._last_proxy, self._last_rssi = chosen, fresh[chosen]
             data["room"] = self._last_room or "unknown"
             data["nearest_proxy"] = chosen
+            data["nearest_source"] = self._last_source
             data["nearest_rssi"] = fresh[chosen]
             data["last_seen"] = dt_util.utcnow()
         elif proxies:
             # between adverts — hold the last-known room rather than flapping
             data["room"] = self._last_room or "unknown"
             data["nearest_proxy"] = self._last_proxy
+            data["nearest_source"] = self._last_source
             data["nearest_rssi"] = self._last_rssi
         else:
             data["room"] = "away"
             data["nearest_proxy"] = None
+            data["nearest_source"] = None
             data["nearest_rssi"] = None
         return data.get("room") != prev_room
 
